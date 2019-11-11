@@ -1,0 +1,29 @@
+FROM openknowledge/ckan-dev:2.7
+RUN apk add --no-cache libffi-dev
+
+# Install project extension
+RUN pip install --no-cache-dir -e git+https://github.com/datagovuk/ckanext-report.git#egg=ckanext-report && \
+    pip install --no-cache-dir -e git+https://github.com/ViderumGlobal/ckanext-archiver.git@ckan-2.7-debug#egg=ckanext-archiver && \
+    pip install --no-cache-dir -r ${SRC_DIR}/ckanext-archiver/requirements.txt && \
+    pip install --no-cache-dir -e git+https://github.com/ViderumGlobal/ckanext-qa.git@v1.0.1-tayside#egg=ckanext-qa && \
+    pip install --no-cache-dir -r ${SRC_DIR}/ckanext-qa/requirements.txt && \
+		pip install --no-cache-dir -e git+https://github.com/ViderumGlobal/ckanext-tayside.git@v1.0.15#egg=ckanext-tayside && \
+    pip install --no-cache-dir -r ${SRC_DIR}/ckanext-tayside/requirements.txt && \
+    pip install celery==3.1.25 && \
+    pip install -e git+https://github.com/ViderumGlobal/ckanext-aberdeen.git@c4b9fb1cc3c4617cc4d4f423e434564e55eff054#egg=ckanext-aberdeen
+
+RUN echo "[app:celery]" >> /srv/app/production.ini && \
+    echo "BROKER_BACKEND = redis" >> /srv/app/production.ini && \
+    echo "BROKER_HOST = redis://localhost/1" >> /srv/app/production.ini && \
+    echo "CELERY_RESULT_BACKEND = redis" >> /srv/app/production.ini && \
+    echo "REDIS_HOST = 127.0.0.1" >> /srv/app/production.ini && \
+    echo "REDIS_PORT = 6379" >> /srv/app/production.ini && \
+    echo "REDIS_DB = 0" >> /srv/app/production.ini && \
+    echo "REDIS_CONNECT_RETRY = True" >> /srv/app/production.ini
+
+# These plugins should always be added to cloud instances
+# (you can add more needed by your instance)
+ENV CKAN__PLUGINS aberdeen archiver report qa  envvars datastore datapusher resource_proxy
+
+# Load envvars plugin on ini file
+RUN paster --plugin=ckan config-tool ${APP_DIR}/production.ini "ckan.plugins = ${CKAN__PLUGINS}"
